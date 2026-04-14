@@ -32,11 +32,14 @@ while True:
     if previous_response_id:
         request["previous_response_id"] = previous_response_id
 
+    print(f"\nAssistant: ", end="",flush=True)
     
+    with client.responses.stream(**request) as stream:
+        for event in stream:
+            if event.type == "response.output_text.data":
+                print(event.delta, end="", flush=True)
+        
+        final_response = stream.get_final_response()
 
-    response = client.responses.create(**request)
-
-    print(f"\nAssistant: {response.output_text}\n")
-    previous_response_id = response.id
-
-print(response.output_text)
+    print("\n")
+    previous_response_id = final_response.id
