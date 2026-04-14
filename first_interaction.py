@@ -1,4 +1,5 @@
 import os
+import time
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -38,12 +39,21 @@ while True:
     #     for event in stream:
     #         if event.type == "response.output_text.data":
     #             print(event.delta, end="", flush=True)
+    print("\n ---stram-debug---")
+    start = time.perf_counter()
 
     with client.responses.stream(**request) as stream:
+        chunk_count = 0
         for text in stream.text_deltas:
-            print(text, end="",flush=True)
+            chunk_count += 1
+            elapsed = time.perf_counter() - start
+            #print(text, end="",flush=True)
+            print(f"[{elapsed:0.3f}s] chunk {chunk_count}: {text!r}")
 
         final_response = stream.get_final_response()
 
-    print("\n")
+    print("\n ---end-debug---")
+    print("Final text: \n")
+    print(final_response.output_text)
+    print()
     previous_response_id = final_response.id
