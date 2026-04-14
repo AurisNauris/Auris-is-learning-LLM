@@ -34,11 +34,15 @@ while True:
 
     print(f"\nAssistant: ", end="",flush=True)
     
+    # with client.responses.stream(**request) as stream:
+    #     for event in stream:
+    #         if event.type == "response.output_text.data":
+    #             print(event.delta, end="", flush=True)
+
     with client.responses.stream(**request) as stream:
-        for event in stream:
-            if event.type == "response.output_text.data":
-                print(event.delta, end="", flush=True)
-        
+        for text in stream.text_deltas:
+            print(text, end="",flush=True)
+
         final_response = stream.get_final_response()
 
     print("\n")
