@@ -13,6 +13,7 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 TRANSCRIPT_PATH = "01-terminal-assistant/transcript.json"
 MODEL = "gpt-4o-mini"
 INSTRUCTIONS = "You are a helpful programming tutor. Be concise, clear, and practical."
+MAX_MESSAGES_IN_CONTEX = 10 # simple trimming, send las 10 messages
 
 def load_transcript():
     if os.path.exists(TRANSCRIPT_PATH):
@@ -46,6 +47,25 @@ def session_summary(transcript):
         f"Last {last_role} message: {last_content}"
     )
 
+def print_history(transcript):
+    if not transcript:
+        print("No history yet.\n")
+        return
+    
+    print("\n-----Transcript hisotry-----")
+    for i, message in enumerate(transcript, start=1):
+        content = message.get("content").strip().replace("\n", " ")
+        if len(content) > 100:
+            content = content[:97] + "..."
+        print(f"|{i:02d}| {message.get('role')}: {content}")
+    
+    print("-"*10)
+    print()
+
+def build_model_input(transcript, new_user_message):
+    recent_history = transcript[-MAX_MESSAGES_IN_CONTEX:]
+    return recent_history + [new_user_message,]
+    
 def stream_assistant_reply(model_input):
 
     assistant_text = ""
@@ -69,9 +89,10 @@ def run():
 
     print("Terminal Assistant (local transcript mode)")
     print(session_summary(transcript))
-
+    print(f"Only the most recent {MAX_MESSAGES_IN_CONTEX} will be used for context.")
     print("Type 'exit' to quit.")
     print("Type '/reset' to clear the saved transcript.\n")
+    print("Type '/history' to see conversation history.\n")
 
     while True:
         user_input = input("You: ").strip()
@@ -88,6 +109,10 @@ def run():
             print("Transcript cleared.\n")
             continue
 
+        if user_input == "/history":
+            print_history(transcript)
+            continue
+
         if not user_input:
             continue
 
@@ -96,7 +121,7 @@ def run():
             "content": user_input
             }
         
-        model_input = transcript + [new_user_message,]
+        model_input = build_model_input(transcript, new_user_message)
 
         print("\nAssistant: ", end="", flush=True)
         assistant_text = stream_assistant_reply(model_input)
