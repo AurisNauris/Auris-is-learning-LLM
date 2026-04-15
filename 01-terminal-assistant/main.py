@@ -11,28 +11,42 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 TRANSCRIPT_PATH = "01-terminal-assistant/transcript.json"
+MODEL = "gpt-4o-mini"
+INSTRUCTIONS = "You are a helpful programming tutor. Be concise, clear, and practical."
 
+def load_transcript():
+    if os.path.exists(TRANSCRIPT_PATH):
+        with open(TRANSCRIPT_PATH, 'r') as f:
+            transcript = json.load(f)
+        print(f"Loaded existing transcript with {len(transcript)} messages")
+        return transcript
+    return []
 
-if os.path.exists(TRANSCRIPT_PATH):
-    with open(TRANSCRIPT_PATH, 'r') as f:
-        transcript = json.load(f)
-    print(f"Loaded existing transcript with {len(transcript)} messages")
-else:
-    transcript = []
+def save_transcript(transcript):
+    with open(TRANSCRIPT_PATH, 'w') as f:
+        json.dump(transcript, f, indent=2)
 
-print("Terminal Assistant")
-print("Type 'exit' to quit./n")
+transcript = load_transcript()
+
+print("Terminal Assistant (local transcript mode)")
+print("Type 'exit' to quit.\n")
+print("Type '/reset' to clear saved transcript.\n")
 
 
 while True:
     user_input = input("You: ").strip()
 
     if user_input.lower() in ['exit','quit']:
-        with open(TRANSCRIPT_PATH, "w") as f:
-            json.dump(transcript, f, indent=2)
+        save_transcript(transcript)
         print(f"Transcript saved to {TRANSCRIPT_PATH}")
         print("Goodbye!")
         break
+
+    if user_input.lower() == "/reset":
+        transcript = []
+        save_transcript(transcript)
+        print("Transcript cleared.\n")
+        continue
 
     if not user_input:
         continue
@@ -48,8 +62,8 @@ while True:
     assistant_text = ""
 
     with client.responses.stream(
-        model="gpt-4o-mini",
-        instructions="You are a helpful Python instructor. Be concice, clear and pracitcal.",
+        model=MODEL,
+        instructions=INSTRUCTIONS,
         input=model_input
     ) as stream:
         for event in stream:
@@ -60,6 +74,7 @@ while True:
         final_response = stream.get_final_response()
 
     print("\n")
+    transcript.append(new_user_message)
     transcript.append({"role": "assistant",
                        "content": assistant_text})
    
