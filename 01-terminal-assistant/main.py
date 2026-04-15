@@ -26,41 +26,29 @@ def save_transcript(transcript):
     with open(TRANSCRIPT_PATH, 'w') as f:
         json.dump(transcript, f, indent=2)
 
-transcript = load_transcript()
-
-print("Terminal Assistant (local transcript mode)")
-print("Type 'exit' to quit.\n")
-print("Type '/reset' to clear saved transcript.\n")
-
-
-while True:
-    user_input = input("You: ").strip()
-
-    if user_input.lower() in ['exit','quit']:
-        save_transcript(transcript)
-        print(f"Transcript saved to {TRANSCRIPT_PATH}")
-        print("Goodbye!")
-        break
-
-    if user_input.lower() == "/reset":
-        transcript = []
-        save_transcript(transcript)
-        print("Transcript cleared.\n")
-        continue
-
-    if not user_input:
-        continue
+def session_summary(transcript):
+    if not transcript:
+        return "No previous session found."
     
-    new_user_message = {
-        "role":"user",
-        "content":user_input,
-    }
+    message_count = len(transcript)
+    turn_count = message_count // 2
 
-    model_input = transcript + [new_user_message]
+    last_message = transcript[-1]
+    last_role = last_message["role"]
+    last_content = last_message["content"].strip().replace("\n", " ")
+
+    if len(last_content) > 80:
+        last_content = last_content[:77] + "..."
     
-    print(f"\nAssistant: ", end="",flush=True)
+    return (
+        f"Loaded {message_count} messages.",
+        f"({turn_count} completed turns)",
+        f"Last {last_role} message: {last_content}"
+    )
+
+def stream_assistant_reply(model_input):
+
     assistant_text = ""
-
     with client.responses.stream(
         model=MODEL,
         instructions=INSTRUCTIONS,
@@ -71,10 +59,53 @@ while True:
                 print(event.delta, end="", flush=True)
                 assistant_text += event.delta
         
-        final_response = stream.get_final_response()
+        stream.get_final_response()
+    
+    return assistant_text
 
-    print("\n")
-    transcript.append(new_user_message)
-    transcript.append({"role": "assistant",
-                       "content": assistant_text})
-   
+def run():
+
+    transcript = load_transcript()
+
+    print("Terminal Assistant (local transcript mode)")
+    print(session_summary(transcript))
+
+    print("Type 'exit' to quit.")
+    print("Type '/reset' to clear the saved transcript.\n")
+
+    while True:
+        user_input = input("You: ").strip()
+
+        if user_input.lower() in {"exit", "quit"}:
+            save_transcript(transcript)
+            print(f"Transcript saved to {TRANSCRIPT_PATH}")
+            print("Goodbye!")
+            break
+
+        if user_input == "/reset":
+            transcript = []
+            save_transcript(transcript)
+            print("Transcript cleared.\n")
+            continue
+
+        if not user_input:
+            continue
+
+        new_user_message = {
+            "role":"user",
+            "content": user_input
+            }
+        
+        model_input = transcript + [new_user_message,]
+
+        print("\nAssistant: ", end="", flush=True)
+        assistant_text = stream_assistant_reply(model_input)
+
+        transcript.append(new_user_message)
+        transcript.append({"role":"assistant",
+                           "content": assistant_text})
+        
+        save_transcript(transcript)
+
+if __name__ == "__main__":
+    run()
